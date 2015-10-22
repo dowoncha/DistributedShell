@@ -37,34 +37,6 @@ void tokenize(char *line, char **argv)
 }
 
 /**
- * This function will check whether in the input filename leads to a valid file
- * Uses the stat command to check file type. Will assert that the input filename pointer is non-NULL
- */
-int check_if_valid_file(const char *filename)
-{
-  assert(filename != NULL);
-
-  struct stat sb;                //Declare struct to hold stat information
-
-  errno = 0;                     //Clear error value to read new errors
-  if (stat(filename, &sb) == -1) //Get stat of the file name and store into sb struct
-    {
-      perror("stat");            //Error handling
-      exit(EXIT_FAILURE);
-    }
-
-  //Switch for different values for the mode of the filename
-  switch (sb.st_mode & S_IFMT)
-    {
-    case S_IFDIR: return -1; //Case for a directory
-    case S_IFREG: return 1;  //Case for a regular file
-    default:                    //Everything else
-      printf("Not a regular file\n");
-      return -1;
-    }  
-}
-
-/**
  * This function will fork a child process and execute it
  * This particular child process will tokenize the input line and run the file at the location
  * can be a command (e.g. ls, pwd)
@@ -90,14 +62,6 @@ void run(char *line)
       // The first element in argv will hold the path name
       tokenize(line, argv);
       // Check if the file name is valid
-      if (check_if_valid_file(*argv) == -1)
-	{
-	  printf("Command is not a file\n");
-	  exit(EXIT_FAILURE);
-	}
-      // Exec the file_name with arguments argv
-      errno = 0;
-      char *path = getenv("PATH");
 
       /**
        * Do extra credit here to go through the path variable and find the right directory
