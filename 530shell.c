@@ -20,7 +20,7 @@
 
 /**
  * This function will take a line of input and tokenize it into arguments and return a pointer to the arguments
- * the delimitters used are space, tab, newline, and null values. 
+ * the delimitters used are space, tab, newline, and null values.
  **/
 void tokenize(char *line, char **argv)
 {
@@ -91,7 +91,7 @@ void run(char *line)
     }
 }
 
-int main()
+int main(int argc, char *argv[])
 {
   /* Variable declarations  */
   char line[MAXLINELENGTH];
@@ -107,7 +107,7 @@ int main()
 	  exit(EXIT_FAILURE);
 	}
       /** Fork a child process and execute it**/
-      run(line);   
+      run(line);
     }
 
   return 0;
