@@ -1,17 +1,27 @@
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <assert.h>
+#include <string.h>
 
 #include "Socket.h"
-#include "ToUpper.h"
+#include "HW5shared.h"
 
 ServerSocket welcome_socket;
 Socket connect_socket;
 
-void run(char *line);
+void run();
+int read_line(char *line_data);
 void tokenize(char *line, char **argv);
 
 int main(int argc, char *argv[])
 {
+    pid_t currentPID, childPID, term_pid;
+    int chld_status;
+    char filename[50];
+
     //Argument 1: Welcoming port
     if (argc < 2)
     {
@@ -40,87 +50,91 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
       }
 
-      char filename[50];
-      pid_t current_pid, spid;
-      current_pid = getpid();
-      sprintf(filename, "tmp%d", current_pid);
+      /* Get PID of current process*/
+      currentPID = getpid();
+      /* Make file name from the current pid*/
+      sprintf(filename, "tmp%d", currentPID);
+      /* Set stdout to the output file */
       freopen(filename, "w", stdout);
 
-      spid = fork();  /* create child == service process */
-      if (spid == -1)
-         {
-           perror("fork");
-           exit(EXIT_FAILURE);
-         }
-      if (spid == 0)
-         {/* code for the service process */
-          toupper_service();
-          Socket_close(connect_socket);
-          exit(EXIT_SUCCESS);
-         } /* end service process */
-      else /* daemon process closes its connect socket */
-         {
+      childPID = fork();
+      if (childPID < 0)
+      {
+        perror("fork");
+        exit(EXIT_FAILURE);
+      }
+      else if (childPID == 0)
+      {
+        char *argv[100];
+
+        while ( 1 )
+        {
+            char line[MAX_LINE];
+            if (read_line(line) == -1)
+            {
+              printf("read line error\n");
+              return;
+            }
+
+            // Tokenize the input line into argv array
+            // The first element in argv will hold the path name
+            tokenize(line, argv);
+            // Check if the file name is valid
+            if (execvp(*argv, argv) == -1 ) //Run the command in the arguments list
+      	     {
+      	        perror("Execvp");
+      	        exit(EXIT_FAILURE);
+      	     }
+
+            Socket_close(connect_socket);
+            exit(EXIT_SUCCESS);
+        }
+      }
+      else
+      {
           Socket_close(connect_socket);
           /* reap a zombie every time through the loop, avoid blocking*/
-          //term_pid = waitpid(-1, &chld_status, WNOHANG);
-         }
-     } /* end of infinite loop for daemon process */
+          term_pid = waitpid(-1, &chld_status, WNOHANG);
+      }
+
+      FILE *output;
+      output = fopen(filename, "r");
+
+      if (output)
+      {
+        int c, rc;
+        while ((c = getc(output)) != EOF)
+        {
+          rc = Socket_putc(c, connect_socket);
+          if (rc == EOF)
+          {
+            printf("Socket_putc EOF error\n");
+            return;
+          }
+        }
+      }
     }
 }
 
-/**
- * This function will fork a child process and execute it
- * This particular child process will tokenize the input line and run the file at the location
- * can be a command (e.g. ls, pwd)
- **/
-void run(char *line)
+int read_line(char *line_data)
 {
-  pid_t childPID;
-  char *argv[MAXARGSIZE];
-
-  errno = 0;
-  // Fork a child process
-  childPID = fork();
-
-  if ( childPID < 0)
+  int i, c, rc;
+  /* Read from the socket */
+  for (i = 0; i < MAX_LINE; ++i)
+  {
+    c = Socket_getc(connect_socket);
+    if (c == EOF)
     {
-      perror("Fork");
-      exit(EXIT_FAILURE);
-      //printf("Fork failed with error: %s\n", strerror(errno)); //report an error
+      printf("Socket_getc EOF or error\n");
+      return -1;
     }
-  else if (childPID == 0)
-    {
-      // Tokenize the input line into argv array
-      // The first element in argv will hold the path name
-      tokenize(line, argv);
-      // Check if the file name is valid
 
-      /**
-       * Do extra credit here to go through the path variable and find the right directory
-       * that holds the command in it. TO DO
-       **/
+    line_data[i] = c;
+    if (c == '\0')
+      break;
+  }
 
-      if (execvp(*argv, argv) == -1 ) //Run the command in the arguments list
-	{
-	  perror("Execvp");
-	  exit(EXIT_FAILURE);
-	}
-    }
-  else //Parent process
-    {
-      int status;
-      errno = 0;
-      childPID = wait(&status); //Get the status of the child process
-
-      //If the status of the childPID is less than 0 then there is an error
-      if (childPID < 0)
-	{
-	  perror("Wait");
-	  exit(EXIT_FAILURE);
-	}
-
-      wait(NULL);  //Otherwise wait for child process to finish
-    }
+  return 0;
 }
 
 /**
@@ -132,7 +146,8 @@ void tokenize(char *line, char **argv)
   assert(line != NULL);
 
   //Grab first token from string this should be the command
-  *argv++ = strtok(line, " \t\n\0");
+  *argv = strtok(line, " \t\n\0");
+  ++argv;
   //This loop will run until we are out of arguments to add from the line
   while ( *argv )
     {

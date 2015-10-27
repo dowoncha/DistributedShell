@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "Socket.h"
-#include "ToUpper.h"
+#include "HW5shared.h"
 
 int main(int argc, char *argv[])
 {
@@ -33,14 +33,14 @@ int main(int argc, char *argv[])
 
   //Run until done
   printf("%% ");
-  while ( fgets(line, sizeof(line), stdin) != NULL ))
+  while ( fgets(line, sizeof(line), stdin) != NULL )
     {
       count = strlen(line) + 1;
 
       int i, c, rc;
       for ( i = 0; i < count; ++i )
       {
-        c = line_data[i];
+        c = line[i];
         rc = Socket_putc(c, connect_socket);
         if (rc == EOF)
         {
