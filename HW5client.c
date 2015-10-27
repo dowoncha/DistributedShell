@@ -31,24 +31,53 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  //Run until done
-  printf("%% ");
-  while ( fgets(line, sizeof(line), stdin) != NULL )
+  while ( 1 )
     {
+      printf("%% ");
+      if (fgets(line, sizeof(line), stdin) != NULL)
+	{
+	  fprintf(stderr, "Input too long, or EOF\n");
+	  exit(-1);
+	}
+      
       count = strlen(line) + 1;
 
-      int i, c, rc;
+      int i, in, returnCode;
       for ( i = 0; i < count; ++i )
       {
-        c = line[i];
-        rc = Socket_putc(c, connect_socket);
-        if (rc == EOF)
+	//Get a character from the line and put into the socket
+        in = line[i];
+        returnCode = Socket_putc(in, connect_socket);
+	//If EOF then we quit
+        if (returnCode == EOF)
         {
-          printf("Socket_putc EOF or error\n");
+          fprintf(stderr, "Socket_putc EOF or error\n");
           Socket_close(connect_socket);
-          exit(EXIT_FAILURE);
+          exit(-1);
         }
       }
+
+      for ( i = 0; i < MAX_LINE; ++i)
+	{
+	  in = Socket_getc(connect_socket);
+	  if (in == EOF)
+	    {
+	      fprintf(stderr, "Socket_getc EOF or error\n");
+	      Socket_close(connect_socket);
+	      exit(-1);
+	    }
+	  else 
+	    {
+	      line[i] = in;
+	      if (line[i] == '\0')
+		break;
+	    }
+	}
+      //Make sure string is null terminated
+      if (i == MAX_LINE)
+	line[i-1] == '\0';
+      //Output string to tsdout
+      printf("%s", line);
     }
 
   Socket_close(connect_socket);
