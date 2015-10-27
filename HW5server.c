@@ -50,14 +50,11 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
       }
 
-      /* Get PID of current process*/
-      currentPID = getpid();
-      /* Make file name from the current pid*/
-      sprintf(filename, "tmp%d", currentPID);
-      /* Set stdout to the output file */
-      freopen(filename, "w", stdout);
+      currentPID = getpid();                  // Get PID of the Current Process
+      sprintf(filename, "tmp%d", currentPID); // Make file name from the current pid
+      freopen(filename, "w", stdout);         // Set stdout to the output file
 
-      childPID = fork();
+      childPID = fork();  //Child Process to read from client and execute
       if (childPID < 0)
       {
         perror("fork");
@@ -65,12 +62,12 @@ int main(int argc, char *argv[])
       }
       else if (childPID == 0)
       {
-        char *argv[100];
+        char *argv[100];  //Hold arguments after parsing input line
 
         while ( 1 )
         {
             char line[MAX_LINE];
-            if (read_line(line) == -1)
+            if (read_line(line) == -1)    // Get a line from socket
             {
               printf("read line error\n");
               return;
@@ -86,33 +83,36 @@ int main(int argc, char *argv[])
       	        exit(EXIT_FAILURE);
       	     }
 
-            Socket_close(connect_socket);
+            Socket_close(connect_socket); //Close the connection socket
             exit(EXIT_SUCCESS);
         }
       }
       else
       {
-          Socket_close(connect_socket);
-          /* reap a zombie every time through the loop, avoid blocking*/
-          term_pid = waitpid(-1, &chld_status, WNOHANG);
-      }
+        FILE *output;                   //The file that has the server output
+        output = fopen(filename, "r");
 
-      FILE *output;
-      output = fopen(filename, "r");
-
-      if (output)
-      {
-        int c, rc;
-        while ((c = getc(output)) != EOF)
+        if (output)                     //If hte file is open
         {
-          rc = Socket_putc(c, connect_socket);
-          if (rc == EOF)
+          int c, rc;
+          while ((c = getc(output)) != EOF)   //Run until EOF is reached from File
           {
-            printf("Socket_putc EOF error\n");
-            return;
+            rc = Socket_putc(c, connect_socket);  //Put character into socket
+            if (rc == EOF)
+            {
+              printf("Socket_putc EOF error\n");
+              return;
+            }
           }
         }
+
+        fclose(output);
+        Socket_close(connect_socket);
+        /* reap a zombie every time through the loop, avoid blocking*/
+        term_pid = waitpid(-1, &chld_status, WNOHANG);
       }
+
+
     }
 }
 
