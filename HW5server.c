@@ -19,86 +19,97 @@ void tokenize(char *line, char **argv);
 int main(int argc, char *argv[])
 {
   pid_t currentPID, childPID, termPID;
-    int child_status;
-    char filename[50];
+  int child_status;
+  char filename[50];
 
-    //Argument 1: Welcoming port
-    if (argc < 2)
+  //Argument 1: Welcoming port
+  if (argc < 2)
+  {
+    printf("No port specified\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* Create a welcome socket at the specified port */
+  welcome_socket = ServerSocket_new(atoi(argv[1]));
+  if (welcome_socket < 0)
+  {
+    printf("Failed new server socket\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* Run until exited*/
+  while ( 1 )
+  {
+    /* Accept an incoming client connection.
+     * blocks process until a connection attempt by a client.
+     * Creates a new data transfer socket. */
+    connect_socket = ServerSocket_accept(welcome_socket);
+    if (connect_socket < 0)
     {
-          printf("No port specified\n");
-          exit(EXIT_FAILURE);
+      printf("Failed accept on server socket\n");
+      exit(-1);
     }
 
-    /* Create a welcome socket at the specified port */
-    welcome_socket = ServerSocket_new(atoi(argv[1]));
-    if (welcome_socket < 0)
+    currentPID = getpid();                  // Get PID of the Current Process
+    sprintf(filename, "tmp%d", currentPID); // Make file name from the current pid
+    freopen(filename, "w", stdout);         // Set stdout to the output file
+
+    childPID = fork();  //Child Process to read from client and execute
+    if (childPID < 0)
     {
-      printf("Failed new server socket\n");
-      exit(EXIT_FAILURE);
+      perror("fork");
+      exit(-1);
     }
-
-    /* Run until exited*/
-    while ( 1 )
+    if (childPID == 0)
     {
-      /* Accept an incoming client connection.
-       * blocks process until a connection attempt by a client.
-       * Creates a new data transfer socket. */
-      connect_socket = ServerSocket_accept(welcome_socket);
-      if (connect_socket < 0)
-      {
-        printf("Failed accept on server socket\n");
-        exit(-1);
-      }
-
-      currentPID = getpid();                  // Get PID of the Current Process
-      sprintf(filename, "tmp%d", currentPID); // Make file name from the current pid
-      freopen(filename, "w", stdout);         // Set stdout to the output file
-
-      childPID = fork();  //Child Process to read from client and execute
-      if (childPID < 0)
-      {
-        perror("fork");
-        exit(-1);
-      }
-      if (childPID == 0)
-      {
-	run_service();
-	Socket_close(connect_socket);
-	exit(0);
-      }
-      else
-	{
-	  
-
-	  if ((childPID = wait(&child_status)) == -1)
-	    {
+      run_service();
+	    Socket_close(connect_socket);
+	    exit(0);
+    }
+    else
+	  {
+	    if ((childPID = wait(&child_status)) == -1)
 	      perror("Wait error\n");
-	    }
-	  else  //Check status
+	    else  //Check status
 	    {
-	      if (WIFSIGNALED(child_status) != 0) 
-		{
-		  printf("Child process ended becaues of signal %d\n", WTERMSIG(child_status));
-		}
+	      if (WIFSIGNALED(child_status) != 0)
+	        printf("Child process ended becaues of signal %d\n", WTERMSIG(child_status));
 	      else if (WIFEXITED(child_status) != 0)
-		{
-		  printf("Child process ended normally, status = %d\n", WEXITSTATUS(child_status));
-		}
+	        printf("Child process ended normally, status = %d\n", WEXITSTATUS(child_status));
 	      else
-		{
-		  printf("Child process did not end normally\n");
-		}
+	        printf("Child process did not end normally\n");
 	    }
 
-	  Socket_close(connect_socket);
-	}
+      fclose(stdout);
+
+      /* Create a welcome socket at the specified port */
+      FILE *output;
+      output = fopen(filename, "r");
+
+      if (output)
+      {
+        int c, rc;
+        while ((c = getc(output)) != EOF)
+        {
+          rc = Socket_putc(c, connect_socket);
+          if (rc == EOF)
+          {
+            printf("Socket_putc EOF error\n");
+            return;
+          }
+        }
+      }
+
+      fclose(output);
+	    Socket_close(connect_socket);
     }
+  }
 }
 
 void run_service()
-{	  
+{
   char *argv[100];  //Hold arguments after parsing input line
-  char line[MAX_lINE];
+  char line[MAX_LINE];
 
   //Does not use the server socket
   Socket_close(welcome_socket);
@@ -123,32 +134,8 @@ void run_service()
 
     Socket_close(connect_socket); //Close the connection socket
     exit(0);
-    
+
   }
-}
-
-        FILE *output;                   //The file that has the server output
-        output = fopen(filename, "r");
-
-        if (output)                     //If the file is open
-        {
-          int c, rc;
-          while ((c = getc(output)) != EOF)   //Run until EOF is reached from File
-          {
-            rc = Socket_putc(c, connect_socket);  //Put character into socket
-            if (rc == EOF)
-            {
-              printf("Socket_putc EOF error\n");
-              return;
-            }
-          }
-        }
-
-        fclose(output);
-        Socket_close(connect_socket);
-        /* reap a zombie every time through the loop, avoid blocking*/
-      }
-    }
 }
 
 int read_line(char *line_data)
