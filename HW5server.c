@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   if (argc < 2)
   {
     printf("No port specified\n");
-    exit(EXIT_FAILURE);
+    exit(-1);
   }
 
   /* Create a welcome socket at the specified port */
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
   if (welcome_socket < 0)
   {
     printf("Failed new server socket\n");
-    exit(EXIT_FAILURE);
+    exit(-1);
   }
 
   /* Run until exited*/
@@ -80,8 +80,6 @@ int main(int argc, char *argv[])
 	        printf("Child process did not end normally\n");
 	    }
 
-      fclose(stdout);
-
       /* Create a welcome socket at the specified port */
       FILE *output;
       output = fopen(filename, "r");
@@ -95,7 +93,7 @@ int main(int argc, char *argv[])
           if (rc == EOF)
           {
             printf("Socket_putc EOF error\n");
-            return;
+            break;
           }
         }
       }
@@ -131,10 +129,8 @@ void run_service()
       perror("Execvp");
       exit(-1);
     }
-
-    Socket_close(connect_socket); //Close the connection socket
-    exit(0);
-
+    
+    return;
   }
 }
 
