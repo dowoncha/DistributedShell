@@ -78,8 +78,6 @@ int main(int argc, char *argv[])
         exit(-1);
       }
 
-      fclose(tmp);
-
       //Code after this point should not be Run
       printf("Execvp unreachable code\n");
     }
@@ -94,6 +92,8 @@ int main(int argc, char *argv[])
       else if (WIFEXITED(child_status) != 0) {
         fprintf(stderr, "Child process ended normally, status = %d\n", WEXITSTATUS(child_status));
       }
+
+      fclose(tmp);
 
       // Create a welcome socket at the specified port
       FILE *output;
