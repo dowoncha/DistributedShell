@@ -32,9 +32,13 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  printf("%% ");
-  while (fgets(line, sizeof(line), stdin) != NULL)
+  do
   {
+    printf("%%");
+    if (fgets(line, sizeof(line), stdin) == NULL)  {
+	forever = 0;
+      }
+
     count = strlen(line) + 1;
 
     //Loop to read through the string. 
@@ -44,18 +48,13 @@ int main(int argc, char *argv[])
       rc = Socket_putc(connect_socket);  //Deposit a character into the socket
       if (rc == EOF)                     
 	{
-	  printf("Client socket_putc: Don't call a closed pipe");
-	  Socket_close(connect_socket);
+	  printf("Client socket_putc: This should never happen on EOF. Don't call a closed pipe");
+	  Socket.close(connect_socket);
           exit(-1);
 	}
+
+      
     }
-
-    //Get the output from the 
-    for ( i = 0; i < MAX_LINE; ++i)
-      {
-	c = Socket_getc(connect_socket);
-
-      }
   }
   while ( forever );
   /*&
