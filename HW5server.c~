@@ -59,7 +59,6 @@ int main(int argc, char *argv[])
       perror("fork");
       exit(-1);
     }
-    
     if (childPID == 0)
     {
       Socket_close(welcome_socket);
@@ -67,11 +66,6 @@ int main(int argc, char *argv[])
       Socket_close(connect_socket);
       exit(0);
     }
-    else
-      {
-	fclose(tmp);
-      }
-    if( fgets (str, 60, fp)!=NULL ) 
     /* else
     {
       if (waitpid(-1, &child_status, 0) == -1)

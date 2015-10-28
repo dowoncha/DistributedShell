@@ -13,6 +13,7 @@ int main(int argc, char *argv[])
   char line[MAX_LINE];
   int count = 0;
   int i, c, rc;
+  int forever;
 
   //Socket descriptor
   Socket connect_socket;
@@ -31,52 +32,52 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  while ( 1 )
-    {
-      printf("%% ");
-      if (fgets(line, sizeof(line), stdin) != NULL)
-	     {
-	        fprintf(stderr, "Input too long, or EOF\n");
-	        exit(-1);
-	     }
-
-      //Length of loop
-      count = strlen(line) + 1;
-
-      for ( i = 0; i < count; ++i )
-      {
-	       //Get a character from the line and put into the socket
-        c = line[i];
-        rc = Socket_putc(c, connect_socket);
-	      //If EOF then we quit
-        if (rc == EOF)
-        {
-          fprintf(stderr, "Socket_putc EOF or error\n");
-          Socket_close(connect_socket);
-          exit(-1);
-        }
+  do
+  {
+    printf("%%");
+    if (fgets(line, sizeof(line), stdin) == NULL)  {
+	forever = 0;
       }
 
+    count = strlen(line) + 1;
+
+    //Loop to read through the string. 
+    for ( i = 0; i < count; ++i) 
+    {
+      c = line[i];           
+      rc = Socket_putc(connect_socket);  //Deposit a character into the socket
+      if (rc == EOF)                     
+	{
+	  printf("Client socket_putc: This should never happen on EOF. Don't call a closed pipe");
+	  Socket.close(connect_socket);
+          exit(-1);
+	}
+
+      
+    }
+  }
+  while ( forever );
+  /*&
       for ( i = 0; i < MAX_LINE; ++i)
-	    {
-	      c = Socket_getc(connect_socket);
-	      if (c == EOF)
-	      {
+      {
+	c = Socket_getc(connect_socket);
+	if (c == EOF)
+	{
           printf("Socket_getc EOF or error\n");
-	        Socket_close(connect_socket);
-	        exit(-1);
-	      }
-	      else
-	      {
-	        line[i] = c;
-	        if (line[i] == '\0')
-		        break;
-	      }
+	  Socket_close(connect_socket);
+	  exit(-1);
+	}
+	else
+	{
+	  line[i] = c;
+	  if (line[i] == '\0')
+	    break;
+	}
       }
       
       //Make sure string is null terminated
       if (i == MAX_LINE)
-	      line[i-1] == '\0';
+	line[i-1] == '\0';
       //Output string to tsdout
       printf("%s", line);
     }
