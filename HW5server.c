@@ -13,16 +13,19 @@ ServerSocket welcome_socket;
 Socket connect_socket;
 
 void run_service();
-int read_line(char *line_data);
+void read_line(char *line_data);
 void tokenize(char *line, char **argv);
 
 int main(int argc, char *argv[])
 {
-  pid_t currentPID, childPID;
-  int child_status;
+  pid_t childPID;
+  int child_status, ID;
   char filename[50];
+  char line[MAX_LINE];
+  char *argv[100];  //Hold arguments after parsing input line
 
   FILE *tmp;
+  FILE *output;
 
   //Argument 1: Welcoming port
   if (argc < 2)
@@ -49,9 +52,11 @@ int main(int argc, char *argv[])
   /* Run until exited*/
   while ( 1 )
   {
-    currentPID = getpid();                  // Get PID of the Current Process
-    sprintf(filename, "tmp%d", currentPID); // Make file name from the current pid
+    ID = (int)getpid();                  // Get PID of the Current Process
+    sprintf(filename, "tmp%d", ID);     // Make file name from the current pid
     tmp = freopen(filename, "w", stdout);         // Set stdout to the output file
+
+    read_line(line);
 
     childPID = fork();  //Child Process to read from client and execute
     if (childPID < 0)
@@ -59,38 +64,43 @@ int main(int argc, char *argv[])
       perror("fork");
       exit(-1);
     }
-    
+
     if (childPID == 0)
     {
       Socket_close(welcome_socket);
-      run_service();
-      Socket_close(connect_socket);
-      exit(0);
-    }
-    else
+
+      tokenize(line, argv);
+      // Check if the file name is valid
+      if (execvp(*argv, argv) == -1 ) //Run the command in the arguments list
       {
-	fclose(tmp);
+        perror("Execvp");
+        exit(-1);
       }
-    if( fgets (str, 60, fp)!=NULL ) 
-    /* else
-    {
-      if (waitpid(-1, &child_status, 0) == -1)
-        perror("Wait error\n");
-      if (WIFSIGNALED(child_status) != 0)
-        printf("Child process ended becaues of signal %d\n", WTERMSIG(child_status));
-      else if (WIFEXITED(child_status) != 0)
-        printf("Child process ended normally, status = %d\n", WEXITSTATUS(child_status));
-      else
-        printf("Child process did not end normally\n");
 
       fclose(tmp);
+
+      //Code after this point should not be Run
+      printf("Execvp unreachable code\n");
+    }
+    else if (childPID > 0)
+    {
+      if (waitpid(-1, &child_status, 0) == -1) {
+        perror("Wait error\n");
+      }
+      if (WIFSIGNALED(child_status) != 0) {
+        fprintf(stderr, "Child process ended becaues of signal %d\n", WTERMSIG(child_status));
+      }
+      else if (WIFEXITED(child_status) != 0) {
+        fprintf(stderr, "Child process ended normally, status = %d\n", WEXITSTATUS(child_status));
+      }
+
       // Create a welcome socket at the specified port
       FILE *output;
       if ((output = fopen(filename, "r")) == NULL)
-	{
-	  printf("File open error\n");
-	  return;
-	}
+	     {
+	        printf("File open error\n");
+	        exit (-1);
+	     }
 
       int c, rc;
       while ((c = getc(output)) != EOF)
@@ -104,57 +114,28 @@ int main(int argc, char *argv[])
       }
 
       fclose(output);
-      Socket_close(connect_socket);
-    }*/
-  }
-}
-
-void run_service()
-{
-  char *argv[100];  //Hold arguments after parsing input line
-  char line[MAX_LINE];
-
-  //Does not use the server socket
-  Socket_close(welcome_socket);
-
-  while ( 1 )
-  {
-    if (read_line(line) == -1)    // Get a line from socket
-    {
-      printf("Read line error\n");
-      return;
-    }
-    // Tokenize the input line into argv array
-    // The first element in argv will hold the path name
-    tokenize(line, argv);
-    // Check if the file name is valid
-    if (execvp(*argv, argv) == -1 ) //Run the command in the arguments list
-    {
-      perror("Execvp");
-      exit(-1);
+      remove(filename);
     }
   }
 }
 
-int read_line(char *line_data)
+void read_line(char *line_data)
 {
-  int i, c, rc;
+  int i, c;
   /* Read from the socket */
   for (i = 0; i < MAX_LINE; ++i)
   {
-    c = Socket_getc(connect_socket);
-    if (c == EOF)
+    if ((c = Socket_getc(connect_socket)) == EOF)  //Get a value from the buffer and check for EOF
     {
       printf("Socket_getc EOF or error\n");
-      return -1;
+      Socket_connect(connect_socket);
+      exit(-1);
     }
 
     line_data[i] = c;
-    if (c == '\0')
+    if (c == '\0')    //Every line is null terminated so this is how we break out of loop for reading
       break;
   }
-
-  return 0;
 }
 
 /**
