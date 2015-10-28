@@ -22,7 +22,6 @@ int main(int argc, char *argv[])
   int child_status, ID;
   char filename[50];
   char line[MAX_LINE];
-  char *argv[100];  //Hold arguments after parsing input line
 
   FILE *tmp;
   FILE *output;
@@ -69,9 +68,11 @@ int main(int argc, char *argv[])
     {
       Socket_close(welcome_socket);
 
+      char *tempchildargs[100];
+
       tokenize(line, argv);
       // Check if the file name is valid
-      if (execvp(*argv, argv) == -1 ) //Run the command in the arguments list
+      if (execvp(*tempchildargs, tempchildargs) == -1 ) //Run the command in the arguments list
       {
         perror("Execvp");
         exit(-1);
@@ -108,8 +109,8 @@ int main(int argc, char *argv[])
         rc = Socket_putc(c, connect_socket);
         if (rc == EOF)
         {
-          printf("Socket_putc EOF error\n");
-          break;
+          printf("Server socket_putc EOF error\n");
+          exit(-1);
         }
       }
 
@@ -125,10 +126,11 @@ void read_line(char *line_data)
   /* Read from the socket */
   for (i = 0; i < MAX_LINE; ++i)
   {
-    if ((c = Socket_getc(connect_socket)) == EOF)  //Get a value from the buffer and check for EOF
+    c = Socket_getc(connect_socket);
+    if (c == EOF)  //Get a value from the buffer and check for EOF
     {
       printf("Socket_getc EOF or error\n");
-      Socket_connect(connect_socket);
+      Socket_close(connect_socket);
       exit(-1);
     }
 

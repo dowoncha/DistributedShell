@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     for ( i = 0; i < count; ++i)
     {
       c = line[i];
-      rc = Socket_putc(connect_socket);  //Deposit a character into the socket
+      rc = Socket_putc(c, connect_socket);  //Deposit a character into the socket
       if (rc == EOF)
       {
         printf("Client socket_putc: Don't call a closed pipe\n");
