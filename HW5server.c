@@ -18,9 +18,11 @@ void tokenize(char *line, char **argv);
 
 int main(int argc, char *argv[])
 {
-  pid_t currentPID, childPID, termPID;
+  pid_t currentPID, childPID;
   int child_status;
   char filename[50];
+
+  FILE *tmp;
 
   //Argument 1: Welcoming port
   if (argc < 2)
@@ -37,22 +39,19 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
+  connect_socket = ServerSocket_accept(welcome_socket);
+  if (connect_socket < 0)
+  {
+    printf("Failed connect socket\n");
+    exit(-1);
+  }
+
   /* Run until exited*/
   while ( 1 )
   {
-    /* Accept an incoming client connection.
-     * blocks process until a connection attempt by a client.
-     * Creates a new data transfer socket. */
-    connect_socket = ServerSocket_accept(welcome_socket);
-    if (connect_socket < 0)
-    {
-      printf("Failed accept on server socket\n");
-      exit(-1);
-    }
-
     currentPID = getpid();                  // Get PID of the Current Process
     sprintf(filename, "tmp%d", currentPID); // Make file name from the current pid
-    freopen(filename, "w", stdout);         // Set stdout to the output file
+    tmp = freopen(filename, "w", stdout);         // Set stdout to the output file
 
     childPID = fork();  //Child Process to read from client and execute
     if (childPID < 0)
@@ -68,18 +67,17 @@ int main(int argc, char *argv[])
     }
     else
 	  {
-	    if ((childPID = wait(&child_status)) == -1)
+	    if (waitpid(-1, &child_status, 0) == -1)
 	      perror("Wait error\n");
-	    else  //Check status
-	    {
-	      if (WIFSIGNALED(child_status) != 0)
-	        printf("Child process ended becaues of signal %d\n", WTERMSIG(child_status));
-	      else if (WIFEXITED(child_status) != 0)
-	        printf("Child process ended normally, status = %d\n", WEXITSTATUS(child_status));
-	      else
-	        printf("Child process did not end normally\n");
-	    }
 
+	    if (WIFSIGNALED(child_status) != 0)
+	      printf("Child process ended becaues of signal %d\n", WTERMSIG(child_status));
+	    else if (WIFEXITED(child_status) != 0)
+	      printf("Child process ended normally, status = %d\n", WEXITSTATUS(child_status));
+	    else
+	      printf("Child process did not end normally\n");
+
+      fclose(tmp);
       /* Create a welcome socket at the specified port */
       FILE *output;
       output = fopen(filename, "r");
@@ -129,7 +127,7 @@ void run_service()
       perror("Execvp");
       exit(-1);
     }
-    
+
     return;
   }
 }

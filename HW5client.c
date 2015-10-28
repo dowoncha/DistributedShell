@@ -10,9 +10,9 @@ int main(int argc, char *argv[])
 {
   //Argument 1 is dns Server
   //Argument 2 is welcoming port
-
   char line[MAX_LINE];
   int count = 0;
+  int i, c, rc;
 
   //Socket descriptor
   Socket connect_socket;
@@ -35,21 +35,21 @@ int main(int argc, char *argv[])
     {
       printf("%% ");
       if (fgets(line, sizeof(line), stdin) != NULL)
-	{
-	  fprintf(stderr, "Input too long, or EOF\n");
-	  exit(-1);
-	}
-      
+	     {
+	        fprintf(stderr, "Input too long, or EOF\n");
+	        exit(-1);
+	     }
+
+      //Length of loop
       count = strlen(line) + 1;
 
-      int i, in, returnCode;
       for ( i = 0; i < count; ++i )
       {
-	//Get a character from the line and put into the socket
-        in = line[i];
-        returnCode = Socket_putc(in, connect_socket);
-	//If EOF then we quit
-        if (returnCode == EOF)
+	       //Get a character from the line and put into the socket
+        c = line[i];
+        rc = Socket_putc(c, connect_socket);
+	      //If EOF then we quit
+        if (rc == EOF)
         {
           fprintf(stderr, "Socket_putc EOF or error\n");
           Socket_close(connect_socket);
@@ -58,24 +58,25 @@ int main(int argc, char *argv[])
       }
 
       for ( i = 0; i < MAX_LINE; ++i)
-	{
-	  in = Socket_getc(connect_socket);
-	  if (in == EOF)
 	    {
-	      fprintf(stderr, "Socket_getc EOF or error\n");
-	      Socket_close(connect_socket);
-	      exit(-1);
-	    }
-	  else 
-	    {
-	      line[i] = in;
-	      if (line[i] == '\0')
-		break;
-	    }
-	}
+	      c = Socket_getc(connect_socket);
+	      if (c == EOF)
+	      {
+          printf("Socket_getc EOF or error\n");
+	        Socket_close(connect_socket);
+	        exit(-1);
+	      }
+	      else
+	      {
+	        line[i] = c;
+	        if (line[i] == '\0')
+		        break;
+	      }
+      }
+      
       //Make sure string is null terminated
       if (i == MAX_LINE)
-	line[i-1] == '\0';
+	      line[i-1] == '\0';
       //Output string to tsdout
       printf("%s", line);
     }
