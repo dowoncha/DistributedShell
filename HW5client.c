@@ -6,17 +6,17 @@
 #include "Socket.h"
 #include "HW5shared.h"
 
+Socket connect_socket;
+
+void DepositLine(char *line);
+void GetOutput();
+
 int main(int argc, char *argv[])
 {
   //Argument 1 is dns Server
   //Argument 2 is welcoming port
   char line[MAX_LINE];
   int count = 0;
-  int i, c, rc;
-  int forever;
-
-  //Socket descriptor
-  Socket connect_socket;
 
   if (argc < 3 )
   {
@@ -32,46 +32,61 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  printf("%% ");
-  while (fgets(line, sizeof(line), stdin) != NULL)
-  {
-    count = strlen(line) + 1;
-
-    //Loop to read through the string.
-    for ( i = 0; i < count; ++i)
+  while ( 1 )
     {
-      c = line[i];
-      rc = Socket_putc(c, connect_socket);  //Deposit a character into the socket
-      if (rc == EOF)
+      printf("%% ");
+      if ((fgets(line, sizeof(line), stdin)) == NULL)
       {
-        printf("Client socket_putc: Don't call a closed pipe\n");
-        Socket_close(connect_socket);
-        exit(-1);
+	printf("Input too long, or EOF\n");
+	break;                           //hould not happen
       }
+
+      DepositLine(line);
+
+      GetOutput();
     }
 
-    //Get the output from the
-    for ( i = 0; i < MAX_LINE; ++i)
-      {
-        c = Socket_getc(connect_socket);
-        if (c == EOF)
-        {
-          printf("Client socket_getc: Don't call a closed pipe\n");
-          Socket_close(connect_socket);
-          exit(-1);
-        }
-
-        line[i] = c;
-        if (line[i] = '\0')
-          break;
-      }
-
-      if (i == MAX_LINE)
-        line[i-1] = '\0';
-
-      printf("%s", line);
-  }
+  Socket_putc(EOF, connect_socket);  //Let the server know  the client is finished
 
   Socket_close(connect_socket);
   exit(0);
 }
+
+void DepositLine(char *line)
+{
+  int i, rc, c;
+
+  do
+    {
+      c = line[i++];
+
+      rc = Socket_putc(c, connect_socket);
+    }
+  while (c != '\0');
+}
+
+void GetOutput()
+{
+  int i, c;
+
+  for (i = 0; i < MAX_LINE; ++i)
+    {
+      c = Socket_getc(connect_socket);
+      if (c == EOF)
+      {
+	printf("Client output EOF reached\n");
+        break;
+      }
+
+      if (c == '\0')
+	{
+	  printf("Client output null value. Success\n");
+	  break;
+	}
+
+      putchar(c);
+    }
+
+  printf("Output finished\n");
+}
+
