@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <assert.h>
 #include <string.h>
+#include <errno.h>
 
 #include "Socket.h"
 #include "HW5shared.h"
@@ -42,6 +43,7 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
+  /* Open a connect socket through the welcom socket*/
   connect_socket = ServerSocket_accept(welcome_socket);
   if (connect_socket < 0)
   {
@@ -49,7 +51,7 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
-  Socket_close(welcome_socket);
+  Socket_close(welcome_socket);  //Close the welcome socket as it is unused
 
   pid_t childPID;
   char *argcv[MAXARGSIZE];
@@ -60,43 +62,47 @@ int main(int argc, char *argv[])
   {
     ID = (int)getpid();                    // Get PID of the Current Process
     sprintf(filename, "tmp%d", ID);        // Make file name from the current pid
-    tmp = freopen(filename, "w", stdout);
+    tmp = freopen(filename, "w", stdout);  // Redirect stdout to the tmp file
 
     read_line(line);
   
     childPID = fork();  //Child Process to read from client and execute
     if (childPID < 0)
     {
-      perror("fork");
+      printf("Fork error\n");
       exit(-1);
     }
 
     if (childPID == 0)  //Child process
     {
-      tokenize(line, argv);
+      tokenize(line, argv);  //Tokenize the input line into arguments
+      errno = 0;
       // Check if the file name is valid
       if (execvp(*argv, argv) == -1 ) //Run the command in the arguments list
       {
-        perror("Execvp");
+	printf("Execvp error: %d\n", errno);
         exit(-1);
       }      
     }
     else if (childPID > 0)
     {
+      int flag = 0;
+
       //Wait until the child process finishes
       if (waitpid(-1, &child_status, 0) == -1) {
 	printf("Server: wait error\n");
       }
       //Check signals for child process
-      if (WIFSIGNALED(child_status) != 0) {
-	printf("Server: WIFSIGNALED ERROR\n");
+      if (WIFSIGNALED(child_status)) {
+	printf("Server: WIFSIGNALED ERROR: %d\n", WTERMSIG(child_status));
+      }
+      else if (WIFSTOPPED(child_status)) {
+	printf("Server: WIFSTOPPED ERROR: %d\n", WSTOPSIG(child_status));
       }
  
-      fclose(tmp);
+      fclose(tmp);  //Close the redirected temp file
 
-      output_results();
-
-      printf("Output finished\n");
+      output_results();  //Ouput thte reuslts back into socket
     }
   }
 }
@@ -116,15 +122,18 @@ void output_results()
     {
       c = getc(output_file);
       
+      if (c == EOF)
+	break;
+
       Socket_putc(c, connect_socket);
     }
   while (c != EOF);
 
   Socket_putc('\0', connect_socket);
-  Socket_putc(EOF, connect_socket);
+  //Socket_putc(EOF, connect_socket);
 
   fclose(output_file);
-  //remove(filename);
+  remove(filename);
 }
 
 void read_line(char *line)
@@ -136,7 +145,6 @@ void read_line(char *line)
     c = Socket_getc(connect_socket);  //Assume get c worked
     if (c == EOF)                     //EOF is found on read exit
       {
-	fprintf(stderr, "EOF encountered exiting read\n");
 	remove(filename);                  //Delete the tmp file
 	exit(-1);
       }
@@ -145,7 +153,6 @@ void read_line(char *line)
 
     if (c == '\0')    //Every line is null terminated so this is how we break out of loop
       {
-	fprintf(stderr, "Read a null character, finish reading\n");
         return;
       }
   }

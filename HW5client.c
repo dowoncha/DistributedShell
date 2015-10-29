@@ -10,6 +10,7 @@ Socket connect_socket;
 
 void DepositLine(char *line);
 void GetOutput();
+void ErrorCheck();
 
 int main(int argc, char *argv[])
 {
@@ -35,32 +36,41 @@ int main(int argc, char *argv[])
   while ( 1 )
     {
       printf("%% ");
-      if ((fgets(line, sizeof(line), stdin)) == NULL)
+      if ((fgets(line, sizeof(line), stdin)) == NULL)  //Read lines until EOF
       {
 	printf("Input too long, or EOF\n");
 	break;                           //hould not happen
       }
 
-      DepositLine(line);
+      DepositLine(line);  //Deposit the read line into the socket
 
-      GetOutput();
+      GetOutput();        //Get the result from command from the socket and output
     }
 
-  Socket_putc(EOF, connect_socket);  //Let the server know  the client is finished
+  Socket_putc(EOF, connect_socket);  //Let the server know the client is finished
 
   Socket_close(connect_socket);
   exit(0);
 }
+/*
+void ErrorCheck()
+{
+  int c;
+  c = Socket_getc(connect_socket);
 
+  if (c == 1)
+    printf("Error on server!\n");
+}
+*/
 void DepositLine(char *line)
 {
   int i, rc, c;
 
   do
     {
-      c = line[i++];
+      c = line[i++];  //Get a character from the input line
 
-      rc = Socket_putc(c, connect_socket);
+      rc = Socket_putc(c, connect_socket);  //Deposit into socket
     }
   while (c != '\0');
 }
@@ -71,22 +81,14 @@ void GetOutput()
 
   for (i = 0; i < MAX_LINE; ++i)
     {
-      c = Socket_getc(connect_socket);
-      if (c == EOF)
-      {
-	printf("Client output EOF reached\n");
-        break;
-      }
+      c = Socket_getc(connect_socket);  //Get a character from the read socket
 
-      if (c == '\0')
+      if (c == '\0')  //Null byte signals end of output
 	{
-	  printf("Client output null value. Success\n");
-	  break;
+	  return;
 	}
 
-      putchar(c);
+      putchar(c);     //Output the caracter
     }
-
-  printf("Output finished\n");
 }
 
